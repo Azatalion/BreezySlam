@@ -107,19 +107,15 @@ while vrep.simxGetConnectionId(clientID) != -1:
 
     #считаем одометрию для обоих колес
     errorCode, x_left = vrep.simxGetJointPosition(clientID, left_motor_handle, vrep.simx_opmode_streaming)
-    dx_left = x_left - prev_pos_left
+    dx_left = abs(x_left - prev_pos_left)
     prev_pos_left = x_left
-    if dx_left >= 0:
-        dx_left = (dx_left + math.pi) % (2 * math.pi) - math.pi
-    else:
-        dx_left = (dx_left - math.pi) % ( 2 * math.pi) + math.pi
+    dx_left = (dx_left + math.pi) % (2 * math.pi) - math.pi
+	
     errorCode, x_right = vrep.simxGetJointPosition(clientID, right_motor_handle, vrep.simx_opmode_streaming)
-    dx_right = x_right - prev_pos_right
+    dx_right = abs(x_right - prev_pos_right)
     prev_pos_right = x_right
-    if dx_right >= 0:
-        dx_right = (dx_right + math.pi) % (2 * math.pi) - math.pi
-    else:
-        dx_right = (dx_right - math.pi) % (2 * math.pi) + math.pi
+    dx_right = (dx_right + math.pi) % (2 * math.pi) - math.pi
+	
     #обновляем информацию об изменении координат колес, угле между ними и времени
     velocities = robot.computePoseChange(time.time(), abs(dx_left), abs(dx_right))
 
