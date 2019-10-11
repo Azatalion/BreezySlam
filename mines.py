@@ -4,7 +4,7 @@ from breezyslam.vehicles import WheeledVehicle
 class pioner(WheeledVehicle):
 
     def __init__(self):
-        WheeledVehicle.__init__(self, 195 / 2, 381 / 2)
+        WheeledVehicle.__init__(self, 195 / 2, 381 / 2) # 195 - диаметр колеса робота, 381 - расстояние между колесами
 
         self.ticks_per_cycle = 2000
 
