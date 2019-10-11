@@ -6,7 +6,6 @@ from breezyslam.algorithms import RMHC_SLAM
 from breezyslam.sensors import Laser
 from roboviz import MapVisualizer
 from mines import pioner
-#import cv2
 
 MAP_SIZE_PIXELS = 1000
 MAP_SIZE_METERS = 25
@@ -122,43 +121,6 @@ while vrep.simxGetConnectionId(clientID) != -1:
     slam.getmap(mapbytes)
     if not viz.display(x / 1000., y / 1000., theta, mapbytes):
         exit(0)
-
-    # # Pyramide detection
-    # errorCode, resolution, image = vrep.simxGetVisionSensorImage(clientID, vision_sensor, 0, vrep.simx_opmode_buffer)
-    # if errorCode == vrep.simx_return_ok:
-    #     img = np.array(image, dtype=np.uint8)
-    #     img.resize([resolution[1], resolution[0], 3])
-    #     img = cv2.flip(img, 0)
-    #     lower_yellow = np.array([20, 100, 100])
-    #     upper_yellow = np.array([30, 255, 255])
-    #     hsv = cv2.cvtColor(img, cv2.COLOR_RGB2HSV)
-    #     thresh = cv2.inRange(hsv, lower_yellow, upper_yellow)
-    #     contours, hierarchy = cv2.findContours(thresh.copy(), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-    #     for c in contours:
-    #         approx = cv2.approxPolyDP(c, 0.005*cv2.arcLength(c, True), True)
-    #         if len(approx) == 4:
-    #             vect = []
-    #             x = [approx[0][0][0], approx[1][0][0], approx[2][0][0], approx[3][0][0]]
-    #             y = [approx[0][0][1], approx[1][0][1], approx[2][0][1], approx[3][0][1]]
-    #             vect.append(math.sqrt((x[0] - x[1])**2 + (y[0] - y[1])**2))
-    #             vect.append(math.sqrt((x[1] - x[2])**2 + (y[1] - y[2])**2))
-    #             vect.append(math.sqrt((x[2] - x[3])**2 + (y[2] - y[3])**2))
-    #             vect.append(math.sqrt((x[3] - x[0])**2 + (y[3] - y[0])**2))
-    #             a = []
-    #             a.append(abs(((x[1] - x[0]) * (x[3] - x[0]) + (y[1] - y[0]) * (y[3] - y[0])) / (vect[0] * vect[3])))
-    #             a.append(abs(((x[0] - x[1]) * (x[2] - x[1]) + (y[0] - y[1]) * (y[2] - y[1])) / (vect[0] * vect[1])))
-    #             a.append(abs(((x[1] - x[2]) * (x[3] - x[2]) + (y[1] - y[2]) * (y[3] - y[2])) / (vect[1] * vect[2])))
-    #             a.append(abs(((x[2] - x[3]) * (x[0] - x[3]) + (y[2] - y[3]) * (y[0] - y[3])) / (vect[2] * vect[3])))
-    #             if not (abs(a[0] - a[3]) < 0.01 and abs(a[1] - a[2]) < 0.01) and not(abs(a[0] - a[1]) < 0.01 and abs(a[2] - a[3]) < 0.01):
-    #                 cv2.drawContours(hsv, [np.array([[min(x), max(y)], [min(x), min(y)], [max(x), min(y)], [max(x), max(y)]], dtype = np.int32)], 0, (255, 255, 255), 3)
-    #
-    #     hsv = cv2.cvtColor(hsv, cv2.COLOR_HSV2BGR)
-    #     cv2.namedWindow('cv2_output', cv2.WINDOW_NORMAL)
-    #     cv2.resizeWindow('cv2_output', 512, 512)
-    #     cv2.imshow('cv2_output', hsv)
-    #     cv2.waitKey(delay=1)
-    # else:
-    #     print('Some trouble')
 
 print('Simulation finished')
 exit(0)
