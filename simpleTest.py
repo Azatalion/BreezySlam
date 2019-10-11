@@ -1,3 +1,4 @@
+#подключение нужных библиотек
 import vrep
 import time
 import math
@@ -7,14 +8,17 @@ from breezyslam.sensors import Laser
 from roboviz import MapVisualizer
 from mines import pioner
 
+#размер отображаемой карты и сцены в v-rep
 MAP_SIZE_PIXELS = 1000
 MAP_SIZE_METERS = 25
 
+#параметры пид-регуляции
 error_old = 0
 i_min = -0.2
 i_max = 0.2
 i_sum = 0
 
+#пид-регулятор
 def controller(error):
 
     up = 2 * error;
@@ -32,40 +36,43 @@ def controller(error):
     return up + ud + ui;
 
 print('Program started')
-vrep.simxFinish(-1)
-clientID = vrep.simxStart('127.0.0.1', 19997, True, True, 5000, 5)
+vrep.simxFinish(-1) #на всякий случай закрываем старое соединение
+clientID = vrep.simxStart('127.0.0.1', 19997, True, True, 5000, 5) #подключаемся к v-rep
 if clientID != -1:
     print("Connected to remote server")
 else:
     print('Connection not successful')
     sys.exit('Could not connect')
 
+#получаем хэндлы левого и правого мотора
 errorCode, left_motor_handle = vrep.simxGetObjectHandle(clientID, 'Pioneer_p3dx_leftMotor', vrep.simx_opmode_oneshot_wait)
 errorCode, right_motor_handle = vrep.simxGetObjectHandle(clientID,'Pioneer_p3dx_rightMotor', vrep.simx_opmode_oneshot_wait)
 
+#хэндлы сенсоров для пид-регулирования и считывание данных с них, иначе потом работать не будут
 errorCode, proximity_sensor1 = vrep.simxGetObjectHandle(clientID, 'ps1', vrep.simx_opmode_oneshot_wait)
 errorCode, detectionState, detectedPoint, detectedObjectHandle, detectedSurfaceNormalVector = vrep.simxReadProximitySensor(clientID, proximity_sensor1, vrep.simx_opmode_streaming)
 errorCode, proximity_sensor2 = vrep.simxGetObjectHandle(clientID, 'ps2', vrep.simx_opmode_oneshot_wait)
 errorCode, detectionState, detectedPoint, detectedObjectHandle, detectedSurfaceNormalVector = vrep.simxReadProximitySensor(clientID, proximity_sensor2, vrep.simx_opmode_streaming)
 
+#хэндлы сенсоров лидара
 errorCode, vision_sensor1 = vrep.simxGetObjectHandle(clientID, 'SICK_TiM310_sensor1', vrep.simx_opmode_oneshot_wait)
 errorCode, vision_sensor2 = vrep.simxGetObjectHandle(clientID, 'SICK_TiM310_sensor2', vrep.simx_opmode_oneshot_wait)
 
-errorCode, vision_sensor = vrep.simxGetObjectHandle(clientID, 'Vision_sensor', vrep.simx_opmode_oneshot_wait)
-err, resolution, image = vrep.simxGetVisionSensorImage(clientID, vision_sensor, 0, vrep.simx_opmode_streaming)
-
+#объект алгоритма слама, 
+#параметыр лазера: 134 - количество считываемых точек, 5-частота, 270. - угол между сенсорами, 10 - максимальное расстояние обнаружения точек
+#важно поставить map_quality = 1 (качество карты), иначе будет кровь из глаз
 slam = RMHC_SLAM(Laser(134, 5, 270., 10), MAP_SIZE_PIXELS, MAP_SIZE_METERS, map_quality=1)
-viz = MapVisualizer(MAP_SIZE_PIXELS, MAP_SIZE_METERS, 'SLAM')
-mapbytes = bytearray(MAP_SIZE_PIXELS * MAP_SIZE_PIXELS)
+viz = MapVisualizer(MAP_SIZE_PIXELS, MAP_SIZE_METERS, 'SLAM') #объект отображения построенной карты
+mapbytes = bytearray(MAP_SIZE_PIXELS * MAP_SIZE_PIXELS) #массив байтов, который будет отображать карту
 
 purpose = 0.3
 v = 0.7
 robot = pioner()
-prev_pos_left = prev_pos_right = 0
-velocities = ()
+prev_pos_left = prev_pos_right = 0 #позиции левого и правого колеса
+velocities = () #кортеж из изменения координат, изменения угла и изменения времени
 
-vrep.simxStartSimulation(clientID, vrep.simx_opmode_streaming)
-time.sleep(3)
+vrep.simxStartSimulation(clientID, vrep.simx_opmode_streaming) #начало симуляции
+time.sleep(3) #немного поспим, чтобы v-rep успел загрузиться
 print('Simulation starts')
 
 while vrep.simxGetConnectionId(clientID) != -1:
@@ -91,14 +98,14 @@ while vrep.simxGetConnectionId(clientID) != -1:
         errorCode = vrep.simxSetJointTargetVelocity(clientID, left_motor_handle, v + u, vrep.simx_opmode_streaming)
         errorCode = vrep.simxSetJointTargetVelocity(clientID, right_motor_handle, v - u, vrep.simx_opmode_streaming)
 
-    #Data from lidar
+    #получаем данные с лидара
     errorCode, detectionState, auxPackets1 = vrep.simxReadVisionSensor(clientID, vision_sensor1, vrep.simx_opmode_blocking)
     errorCode, detectionState, auxPackets2 = vrep.simxReadVisionSensor(clientID, vision_sensor2, vrep.simx_opmode_blocking)
     data = auxPackets1[1][1::2][0::4] + auxPackets2[1][1::2][0::4]
     data = data[1:68] + data[69:136]
     scan = list(np.array(data) * 1000)
 
-    #Odometry
+    #считаем одометрию для обоих колес
     errorCode, x_left = vrep.simxGetJointPosition(clientID, left_motor_handle, vrep.simx_opmode_streaming)
     dx_left = abs(x_left - prev_pos_left)
     prev_pos_left = x_left
@@ -113,12 +120,16 @@ while vrep.simxGetConnectionId(clientID) != -1:
         dx_right = (dx_right + math.pi) % (2 * math.pi) - math.pi
     else:
         dx_right = (dx_right - math.pi) % (2 * math.pi) + math.pi
+    #обновляем информацию об изменении координат колес, угле между ними и времени
     velocities = robot.computePoseChange(time.time(), abs(dx_left), abs(dx_right))
 
-    #Slam
+    #обновляем карту
     slam.update(scan, velocities)
+    #находим позицию робота на ней
     x, y, theta = slam.getpos()
+    #получаем карту в виде массива байтов
     slam.getmap(mapbytes)
+    #отображаем карту
     if not viz.display(x / 1000., y / 1000., theta, mapbytes):
         exit(0)
 
